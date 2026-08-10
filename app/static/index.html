@@ -195,8 +195,14 @@ async function kuyrukYenile() {
         const [m, sinif] = DURUM_METIN[i.durum] || [i.durum, ""];
         return `<div class="satir"><div class="durum ${sinif}">${m}</div>
           <div class="ne" title="${kacir(i.hata || "")}">${kacir(i.sanatci)} — ${kacir(i.baslik)} <span class="not">(${kacir(i.album)})</span></div>
+          ${i.durum === "hata" ? `<button class="tus" data-yeniden="${i.id}" title="${kacir(i.hata || "")} — yeniden dene" style="padding:0.1rem 0.45rem; font-size:0.85rem;">🔁</button>` : ""}
           <div class="zaman">${kacir((i.bitti || i.eklendi || "").slice(5, 16))}</div></div>`;
       }).join("");
+    kuyrukEl.querySelectorAll("button[data-yeniden]").forEach(b => b.addEventListener("click", async () => {
+      b.disabled = true; b.textContent = "⏳";
+      try { await fetch("/api/yeniden/" + b.dataset.yeniden, { method: "POST" }); } catch {}
+      setTimeout(kuyrukYenile, 800);
+    }));
     if (d.bekleyen > 0) setTimeout(kuyrukYenile, 5000);
   } catch { kuyrukEl.innerHTML = '<div class="not hata">Kuyruk okunamadı.</div>'; }
 }

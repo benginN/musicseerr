@@ -64,6 +64,12 @@ def db_kur():
             hata TEXT, dosya TEXT, youtube TEXT,
             eklendi TEXT, bitti TEXT)""")
         b.execute("PRAGMA journal_mode=WAL")
+        # 10 Ağu (öğleden sonra): YouTube ara sıra geçici 403 veriyor — bir
+        # otomatik yeniden deneme hakkı için sayaç kolonu (göç: varsa dokunma)
+        try:
+            b.execute("ALTER TABLE isler ADD COLUMN deneme INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
 
 
 # ── yardımcılar ─────────────────────────────────────────────────────────────
@@ -283,6 +289,18 @@ def indir(istek: IndirIstek):
         return {"is_id": im.lastrowid, "durum": "bekliyor"}
 
 
+@app.post("/api/yeniden/{is_id}")
+def yeniden_dene(is_id: int):
+    with db() as b:
+        r = b.execute("SELECT durum FROM isler WHERE id=?", (is_id,)).fetchone()
+        if not r:
+            raise HTTPException(404, "iş yok")
+        if r["durum"] != "hata":
+            return {"is_id": is_id, "durum": r["durum"], "not": "zaten hata değil"}
+        b.execute("UPDATE isler SET durum='bekliyor', hata=NULL, deneme=0, bitti=NULL WHERE id=?", (is_id,))
+    return {"is_id": is_id, "durum": "bekliyor"}
+
+
 @app.get("/api/is/{is_id}")
 def is_durumu(is_id: int):
     with db() as b:
@@ -419,8 +437,17 @@ def isci():
             except Exception as e:
                 traceback.print_exc()
                 with db() as b:
-                    b.execute("UPDATE isler SET durum='hata', hata=?, bitti=? WHERE id=?",
-                              (str(e)[:500], datetime.now().strftime("%Y-%m-%d %H:%M:%S"), r["id"]))
+                    deneme = (b.execute("SELECT deneme FROM isler WHERE id=?",
+                                        (r["id"],)).fetchone()["deneme"] or 0)
+                    if deneme < 1:
+                        # YouTube'un geçici 403'leri taze bir çıkarımla çoğu
+                        # zaman geçer — bir otomatik hak; ikincisi elle (🔁 tuşu)
+                        b.execute("UPDATE isler SET durum='bekliyor', deneme=? WHERE id=?",
+                                  (deneme + 1, r["id"]))
+                        time.sleep(20)
+                    else:
+                        b.execute("UPDATE isler SET durum='hata', hata=?, bitti=? WHERE id=?",
+                                  (str(e)[:500], datetime.now().strftime("%Y-%m-%d %H:%M:%S"), r["id"]))
             # YouTube'a nazik davran — toplu kuyruklarda sabit aralık robotik
             # görünür, hafif rastgelelik bot korumasını daha az kışkırtır
             time.sleep(2 + random.random() * 3)
