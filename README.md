@@ -139,6 +139,16 @@ welcome, but there is **no support guarantee** — maintenance happens when life
 allows. ([Türkçe not: bu proje ev sunucum için yazıldı; sorular için issue
 açabilirsiniz.])
 
+## Credits
+
+This project was built **entirely with [Claude](https://claude.com/claude-code)**
+(Anthropic's Claude Code). The design, every line of code, the tests, the
+deployment and this README came out of pair-programming sessions between me and
+Claude on the Raspberry Pi this app was born on — from "could we build a
+Jellyseerr for music?" to this public release, including the end-to-end testing
+against a real Navidrome library. Claude is credited as co-author in the
+commit history.
+
 ## License
 
 [MIT](LICENSE)
