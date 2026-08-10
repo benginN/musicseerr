@@ -124,6 +124,27 @@ The UI is a thin layer over a JSON API — automate away:
 - No accounts/auth: it is meant to live on a LAN or behind your own reverse
   proxy / VPN. **Do not expose it to the open internet as-is.**
 
+## How it compares
+
+There are excellent projects in this space — the difference is the
+infrastructure they sit on:
+
+| Project | Sources | Requires |
+|---|---|---|
+| [Aurral](https://github.com/lklynet/aurral) | via Lidarr (+ yt-dlp / slskd / Usenet) | a Lidarr / \*arr stack — it's a discovery layer, not a downloader |
+| [SoulSync](https://github.com/Nezreka/SoulSync) | Soulseek first, plus streaming sources | slskd; a large full-featured system (~400k LOC) |
+| [DroppedNeedle](https://github.com/DroppedNeedle/DroppedNeedle) | Soulseek + Usenet | slskd and/or a Usenet subscription |
+| **musicseerr** | YouTube (metadata from Deezer) | nothing — one small container |
+
+If you want a full library manager with multi-source downloading, SoulSync or
+DroppedNeedle are genuinely better choices, and Aurral is great on top of an
+existing Lidarr setup. musicseerr deliberately sits in the gap they leave:
+**no P2P, no indexers, no subscriptions** — Soulseek is peer-to-peer (you
+share while you download), which in some jurisdictions is precisely the legal
+exposure you may want to avoid. Here nothing is ever uploaded, and the whole
+thing stays "search → click → correctly tagged in your library a minute
+later."
+
 ## Legal
 
 For personal use. Downloading from YouTube may violate YouTube's Terms of
