@@ -11,6 +11,9 @@
   .sarici { max-width: 62rem; margin: 0 auto; padding: 1.2rem; }
   h1 { font-size: 1.25rem; margin: 0 0 1rem; }
   h1 small { color: var(--soluk); font-weight: normal; font-size: 0.8rem; margin-left: 0.6rem; }
+  .modlar { display: flex; gap: 0.4rem; margin-bottom: 0.7rem; }
+  .modlar button { border: 1px solid #3a3c4a; background: var(--kutu); color: var(--soluk); border-radius: 999px; padding: 0.3rem 0.95rem; cursor: pointer; font-size: 0.9rem; }
+  .modlar button.aktif { background: var(--vurgu); color: #16161e; border-color: var(--vurgu); font-weight: 600; }
   .arama { display: flex; gap: 0.6rem; margin-bottom: 1.2rem; }
   .arama input { flex: 1; padding: 0.65rem 0.9rem; border-radius: 8px; border: 1px solid #3a3c4a; background: var(--kutu); color: var(--yazi); font-size: 1rem; }
   .arama input:focus { outline: none; border-color: var(--vurgu); }
@@ -18,12 +21,16 @@
   .izgara { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0.8rem; }
   .kart { background: var(--kutu); border-radius: 10px; padding: 0.7rem; display: flex; gap: 0.7rem; align-items: center; }
   .kart img { width: 3.4rem; height: 3.4rem; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
+  .kart.tikla { cursor: pointer; } .kart.tikla:hover { outline: 1px solid var(--vurgu); }
   .kart .bilgi { min-width: 0; flex: 1; }
   .kart .ad { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .kart .alt { color: var(--soluk); font-size: 0.82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .kart button { border: none; background: #2f3140; color: var(--yazi); border-radius: 8px; padding: 0.45rem 0.6rem; cursor: pointer; font-size: 1rem; flex-shrink: 0; }
-  .kart button:hover { background: var(--vurgu); color: #16161e; }
+  .kart button, .tus { border: none; background: #2f3140; color: var(--yazi); border-radius: 8px; padding: 0.45rem 0.6rem; cursor: pointer; font-size: 0.95rem; flex-shrink: 0; }
+  .kart button:hover, .tus:hover { background: var(--vurgu); color: #16161e; }
   .kart button:disabled { cursor: default; background: #2f3140; }
+  .sanatci-bas { display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; }
+  .sanatci-bas img { width: 4.6rem; height: 4.6rem; border-radius: 50%; object-fit: cover; }
+  .sanatci-bas .tuslar { display: flex; gap: 0.5rem; flex-wrap: wrap; }
   h2 { font-size: 1rem; color: var(--soluk); margin: 1.6rem 0 0.6rem; }
   .kuyruk .satir { display: flex; gap: 0.7rem; align-items: baseline; padding: 0.35rem 0; border-bottom: 1px solid #2a2c38; font-size: 0.9rem; }
   .kuyruk .durum { flex-shrink: 0; width: 6.5rem; }
@@ -31,46 +38,61 @@
   .kuyruk .zaman { color: var(--soluk); font-size: 0.8rem; flex-shrink: 0; }
   .tamam { color: var(--yesil); } .hata { color: var(--kirmizi); } .surec { color: var(--vurgu); }
   .not { color: var(--soluk); font-size: 0.85rem; }
+  .bildirim { position: fixed; top: 1rem; right: 1rem; background: var(--kutu); border: 1px solid var(--vurgu); border-radius: 10px; padding: 0.7rem 1rem; font-size: 0.9rem; display: none; max-width: 22rem; }
 </style>
 </head>
 <body>
 <div class="sarici">
   <h1>🎵 Müzik Kutusu <small>ara → seç → Navidrome'da beliriyor</small></h1>
+  <div class="modlar" id="modlar">
+    <button data-mod="sarki" class="aktif">Şarkı</button>
+    <button data-mod="album">Albüm</button>
+    <button data-mod="sanatci">Sanatçı</button>
+  </div>
   <form class="arama" id="aramaForm">
     <input id="aramaKutu" type="search" placeholder="Şarkı ya da sanatçı ara… (Deezer)" autofocus>
     <button type="submit">Ara</button>
   </form>
-  <div class="izgara" id="sonuclar"><div class="not">⏳ popüler şarkılar yükleniyor…</div></div>
+  <div id="sonuclar"><div class="not">⏳ popüler şarkılar yükleniyor…</div></div>
   <h2>Kuyruk ve son indirilenler</h2>
   <div class="kuyruk" id="kuyruk"><div class="not">—</div></div>
 </div>
+<div class="bildirim" id="bildirim"></div>
 <script>
 const sonuclarEl = document.getElementById("sonuclar");
 const kuyrukEl = document.getElementById("kuyruk");
+const bildirimEl = document.getElementById("bildirim");
+let mod = "sarki";
 const DURUM_METIN = {
   "bekliyor": ["⏳ sırada", "surec"], "iniyor": ["⬇️ iniyor", "surec"],
   "tamam": ["✅ indi", "tamam"], "zaten-var": ["✔ zaten var", "tamam"], "hata": ["⚠️ hata", "hata"],
 };
+const YER_TUTUCU = { sarki: "Şarkı ya da sanatçı ara… (Deezer)", album: "Albüm adı ara…", sanatci: "Sanatçı adı ara…" };
 
 function kacir(s) { const d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML; }
 function sureYaz(sn) { return sn ? Math.floor(sn / 60) + ":" + String(sn % 60).padStart(2, "0") : ""; }
+function kapakSrc(u) { return u ? "/api/kapak?u=" + encodeURIComponent(u) : ""; }
+function bildir(m) {
+  bildirimEl.textContent = m; bildirimEl.style.display = "block";
+  clearTimeout(bildirimEl._z); bildirimEl._z = setTimeout(() => bildirimEl.style.display = "none", 6000);
+}
 
-function ciz(veri) {
-  if (!veri.sonuclar.length) { sonuclarEl.innerHTML = '<div class="not">Sonuç yok.</div>'; return; }
-  sonuclarEl.innerHTML = veri.sonuclar.map(s => `
+// ── şarkı kartları ──
+function sarkilariCiz(hedefEl, sonuclar) {
+  hedefEl.innerHTML = '<div class="izgara">' + sonuclar.map(s => `
     <div class="kart">
-      <img src="/api/kapak?u=${encodeURIComponent(s.kapak)}" alt="" loading="lazy">
+      <img src="${kapakSrc(s.kapak)}" alt="" loading="lazy">
       <div class="bilgi">
         <div class="ad" title="${kacir(s.baslik)}">${kacir(s.baslik)}</div>
         <div class="alt" title="${kacir(s.sanatci)} · ${kacir(s.album)}">${kacir(s.sanatci)} · ${kacir(s.album)} ${s.sure ? "· " + sureYaz(s.sure) : ""}</div>
       </div>
       ${s.var_mi ? '<button disabled title="Kitaplıkta zaten var">✔</button>'
                  : `<button data-id="${s.deezer_id}" title="İndir ve Navidrome'a ekle">⬇</button>`}
-    </div>`).join("");
-  sonuclarEl.querySelectorAll("button[data-id]").forEach(b => b.addEventListener("click", () => indir(b)));
+    </div>`).join("") + "</div>";
+  hedefEl.querySelectorAll("button[data-id]").forEach(b => b.addEventListener("click", () => tekliIndir(b)));
 }
 
-async function indir(tus) {
+async function tekliIndir(tus) {
   tus.disabled = true; tus.textContent = "⏳";
   try {
     const r = await fetch("/api/indir", { method: "POST", headers: { "Content-Type": "application/json" },
@@ -93,31 +115,115 @@ function izle(isId, tus) {
   setTimeout(() => clearInterval(sayac), 15 * 60 * 1000);
 }
 
+// ── toplu indirme tuşu (albüm / sanatçı) ──
+async function topluIndir(tus, uc, govde, etiket) {
+  tus.disabled = true; const eski = tus.textContent; tus.textContent = "⏳";
+  try {
+    const r = await fetch(uc, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(govde) });
+    if (!r.ok) throw 0;
+    const d = await r.json();
+    tus.textContent = d.eklendi > 0 ? "✅" : "✔";
+    bildir(`${etiket}: ${d.eklendi} şarkı kuyruğa alındı` + (d.atlandi ? `, ${d.atlandi} zaten vardı/sıradaydı` : "") + (d.album_sayisi ? ` (${d.album_sayisi} albüm)` : ""));
+    kuyrukYenile();
+  } catch { tus.textContent = "⚠️"; tus.disabled = false; bildir("⚠️ kuyruğa alınamadı: " + etiket); }
+  if (tus.textContent === "⚠️") tus.textContent = eski;
+}
+
+// ── albüm kartları ──
+function albumleriCiz(hedefEl, sonuclar) {
+  hedefEl.innerHTML = '<div class="izgara">' + sonuclar.map(a => `
+    <div class="kart">
+      <img src="${kapakSrc(a.kapak)}" alt="" loading="lazy">
+      <div class="bilgi">
+        <div class="ad" title="${kacir(a.baslik)}">${kacir(a.baslik)}</div>
+        <div class="alt">${kacir(a.sanatci)} · ${a.parca_sayisi} şarkı${a.yil ? " · " + a.yil : ""}${a.tur && a.tur !== "album" ? " · " + kacir(a.tur) : ""}</div>
+      </div>
+      <button data-album="${a.album_id}" data-ad="${kacir(a.baslik)}" title="Albümün tamamını indir">⬇ albüm</button>
+    </div>`).join("") + "</div>";
+  hedefEl.querySelectorAll("button[data-album]").forEach(b =>
+    b.addEventListener("click", () => topluIndir(b, "/api/indir-album", { album_id: Number(b.dataset.album) }, b.dataset.ad)));
+}
+
+// ── sanatçı kartları + sanatçı sayfası ──
+function sanatcilariCiz(hedefEl, sonuclar) {
+  hedefEl.innerHTML = '<div class="izgara">' + sonuclar.map(a => `
+    <div class="kart tikla" data-sanatci="${a.sanatci_id}">
+      <img src="${kapakSrc(a.resim)}" alt="" loading="lazy" style="border-radius:50%">
+      <div class="bilgi"><div class="ad">${kacir(a.ad)}</div><div class="alt">sayfayı aç →</div></div>
+    </div>`).join("") + "</div>";
+  hedefEl.querySelectorAll("[data-sanatci]").forEach(k =>
+    k.addEventListener("click", () => sanatciAc(Number(k.dataset.sanatci))));
+}
+
+async function sanatciAc(id) {
+  sonuclarEl.innerHTML = '<div class="not">⏳ sanatçı sayfası yükleniyor…</div>';
+  try {
+    const d = await (await fetch("/api/sanatci/" + id)).json();
+    sonuclarEl.innerHTML = `
+      <div class="sanatci-bas">
+        <img src="${kapakSrc(d.resim)}" alt="">
+        <div>
+          <div class="ad" style="font-size:1.15rem; font-weight:700;">${kacir(d.ad)}</div>
+          <div class="tuslar" style="margin-top:0.4rem;">
+            <button class="tus" id="topTus">🔝 En popüler 25'i indir</button>
+            <button class="tus" id="hepsiTus" title="Tüm albümler + EP'ler — single'lar hariç">💿 Tüm albümleri indir</button>
+            <button class="tus" id="geriTus">← aramaya dön</button>
+          </div>
+        </div>
+      </div>
+      <h2>Albümler</h2><div id="sAlbumler"><div class="not">—</div></div>
+      <h2>En popüler şarkılar</h2><div id="sTop"><div class="not">—</div></div>`;
+    albumleriCiz(document.getElementById("sAlbumler"), d.albumler);
+    sarkilariCiz(document.getElementById("sTop"), d.top);
+    document.getElementById("topTus").addEventListener("click", e =>
+      topluIndir(e.target, "/api/indir-sanatci", { sanatci_id: d.sanatci_id, mod: "top" }, d.ad + " — top 25"));
+    document.getElementById("hepsiTus").addEventListener("click", e => {
+      if (confirm(d.ad + " için TÜM albümler kuyruğa alınacak — yüzlerce şarkı olabilir ve saatler sürebilir. Devam?"))
+        topluIndir(e.target, "/api/indir-sanatci", { sanatci_id: d.sanatci_id, mod: "albumler" }, d.ad + " — tüm albümler");
+    });
+    document.getElementById("geriTus").addEventListener("click", () => document.getElementById("aramaForm").requestSubmit());
+  } catch { sonuclarEl.innerHTML = '<div class="not hata">Sanatçı sayfası yüklenemedi.</div>'; }
+}
+
+// ── kuyruk ──
 async function kuyrukYenile() {
   try {
     const d = await (await fetch("/api/kuyruk")).json();
     if (!d.isler.length) { kuyrukEl.innerHTML = '<div class="not">Henüz bir şey indirilmedi.</div>'; return; }
-    kuyrukEl.innerHTML = d.isler.map(i => {
-      const [m, sinif] = DURUM_METIN[i.durum] || [i.durum, ""];
-      return `<div class="satir"><div class="durum ${sinif}">${m}</div>
-        <div class="ne" title="${kacir(i.hata || "")}">${kacir(i.sanatci)} — ${kacir(i.baslik)} <span class="not">(${kacir(i.album)})</span></div>
-        <div class="zaman">${kacir((i.bitti || i.eklendi || "").slice(5, 16))}</div></div>`;
-    }).join("");
+    kuyrukEl.innerHTML = (d.bekleyen > 0 ? `<div class="not surec" style="padding:0.3rem 0;">⏳ sırada ${d.bekleyen} şarkı var</div>` : "") +
+      d.isler.map(i => {
+        const [m, sinif] = DURUM_METIN[i.durum] || [i.durum, ""];
+        return `<div class="satir"><div class="durum ${sinif}">${m}</div>
+          <div class="ne" title="${kacir(i.hata || "")}">${kacir(i.sanatci)} — ${kacir(i.baslik)} <span class="not">(${kacir(i.album)})</span></div>
+          <div class="zaman">${kacir((i.bitti || i.eklendi || "").slice(5, 16))}</div></div>`;
+      }).join("");
     if (d.bekleyen > 0) setTimeout(kuyrukYenile, 5000);
   } catch { kuyrukEl.innerHTML = '<div class="not hata">Kuyruk okunamadı.</div>'; }
 }
+
+// ── mod + arama ──
+document.getElementById("modlar").querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+  mod = b.dataset.mod;
+  document.getElementById("modlar").querySelectorAll("button").forEach(x => x.classList.toggle("aktif", x === b));
+  document.getElementById("aramaKutu").placeholder = YER_TUTUCU[mod];
+  const q = document.getElementById("aramaKutu").value.trim();
+  if (q) document.getElementById("aramaForm").requestSubmit();
+}));
 
 document.getElementById("aramaForm").addEventListener("submit", async e => {
   e.preventDefault();
   const q = document.getElementById("aramaKutu").value.trim();
   if (!q) return;
   sonuclarEl.innerHTML = '<div class="not">⏳ aranıyor…</div>';
-  try { ciz(await (await fetch("/api/ara?q=" + encodeURIComponent(q))).json()); }
-  catch { sonuclarEl.innerHTML = '<div class="not hata">Arama başarısız — Deezer\'a ulaşılamadı.</div>'; }
+  try {
+    if (mod === "sarki") sarkilariCiz(sonuclarEl, (await (await fetch("/api/ara?q=" + encodeURIComponent(q))).json()).sonuclar);
+    else if (mod === "album") albumleriCiz(sonuclarEl, (await (await fetch("/api/ara-album?q=" + encodeURIComponent(q))).json()).sonuclar);
+    else sanatcilariCiz(sonuclarEl, (await (await fetch("/api/ara-sanatci?q=" + encodeURIComponent(q))).json()).sonuclar);
+  } catch { sonuclarEl.innerHTML = '<div class="not hata">Arama başarısız — Deezer\'a ulaşılamadı.</div>'; }
 });
 
 (async () => {
-  try { ciz(await (await fetch("/api/populer")).json()); }
+  try { sarkilariCiz(sonuclarEl, (await (await fetch("/api/populer")).json()).sonuclar); }
   catch { sonuclarEl.innerHTML = '<div class="not">Popüler liste yüklenemedi — arama yine de çalışır.</div>'; }
   kuyrukYenile();
 })();
