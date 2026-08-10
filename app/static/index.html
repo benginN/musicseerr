@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Müzik Kutusu</title>
+<style>
+  :root { --arka: #1a1b26; --kutu: #23242f; --yazi: #d5d6dd; --soluk: #8a8d98; --vurgu: #7aa2f7; --yesil: #9ece6a; --kirmizi: #f7768e; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--arka); color: var(--yazi); font: 15px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .sarici { max-width: 62rem; margin: 0 auto; padding: 1.2rem; }
+  h1 { font-size: 1.25rem; margin: 0 0 1rem; }
+  h1 small { color: var(--soluk); font-weight: normal; font-size: 0.8rem; margin-left: 0.6rem; }
+  .arama { display: flex; gap: 0.6rem; margin-bottom: 1.2rem; }
+  .arama input { flex: 1; padding: 0.65rem 0.9rem; border-radius: 8px; border: 1px solid #3a3c4a; background: var(--kutu); color: var(--yazi); font-size: 1rem; }
+  .arama input:focus { outline: none; border-color: var(--vurgu); }
+  .arama button { padding: 0.65rem 1.1rem; border-radius: 8px; border: none; background: var(--vurgu); color: #16161e; font-weight: 600; cursor: pointer; }
+  .izgara { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0.8rem; }
+  .kart { background: var(--kutu); border-radius: 10px; padding: 0.7rem; display: flex; gap: 0.7rem; align-items: center; }
+  .kart img { width: 3.4rem; height: 3.4rem; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
+  .kart .bilgi { min-width: 0; flex: 1; }
+  .kart .ad { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kart .alt { color: var(--soluk); font-size: 0.82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kart button { border: none; background: #2f3140; color: var(--yazi); border-radius: 8px; padding: 0.45rem 0.6rem; cursor: pointer; font-size: 1rem; flex-shrink: 0; }
+  .kart button:hover { background: var(--vurgu); color: #16161e; }
+  .kart button:disabled { cursor: default; background: #2f3140; }
+  h2 { font-size: 1rem; color: var(--soluk); margin: 1.6rem 0 0.6rem; }
+  .kuyruk .satir { display: flex; gap: 0.7rem; align-items: baseline; padding: 0.35rem 0; border-bottom: 1px solid #2a2c38; font-size: 0.9rem; }
+  .kuyruk .durum { flex-shrink: 0; width: 6.5rem; }
+  .kuyruk .ne { min-width: 0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kuyruk .zaman { color: var(--soluk); font-size: 0.8rem; flex-shrink: 0; }
+  .tamam { color: var(--yesil); } .hata { color: var(--kirmizi); } .surec { color: var(--vurgu); }
+  .not { color: var(--soluk); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<div class="sarici">
+  <h1>🎵 Müzik Kutusu <small>ara → seç → Navidrome'da beliriyor</small></h1>
+  <form class="arama" id="aramaForm">
+    <input id="aramaKutu" type="search" placeholder="Şarkı ya da sanatçı ara… (Deezer)" autofocus>
+    <button type="submit">Ara</button>
+  </form>
+  <div class="izgara" id="sonuclar"><div class="not">⏳ popüler şarkılar yükleniyor…</div></div>
+  <h2>Kuyruk ve son indirilenler</h2>
+  <div class="kuyruk" id="kuyruk"><div class="not">—</div></div>
+</div>
+<script>
+const sonuclarEl = document.getElementById("sonuclar");
+const kuyrukEl = document.getElementById("kuyruk");
+const DURUM_METIN = {
+  "bekliyor": ["⏳ sırada", "surec"], "iniyor": ["⬇️ iniyor", "surec"],
+  "tamam": ["✅ indi", "tamam"], "zaten-var": ["✔ zaten var", "tamam"], "hata": ["⚠️ hata", "hata"],
+};
+
+function kacir(s) { const d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML; }
+function sureYaz(sn) { return sn ? Math.floor(sn / 60) + ":" + String(sn % 60).padStart(2, "0") : ""; }
+
+function ciz(veri) {
+  if (!veri.sonuclar.length) { sonuclarEl.innerHTML = '<div class="not">Sonuç yok.</div>'; return; }
+  sonuclarEl.innerHTML = veri.sonuclar.map(s => `
+    <div class="kart">
+      <img src="/api/kapak?u=${encodeURIComponent(s.kapak)}" alt="" loading="lazy">
+      <div class="bilgi">
+        <div class="ad" title="${kacir(s.baslik)}">${kacir(s.baslik)}</div>
+        <div class="alt" title="${kacir(s.sanatci)} · ${kacir(s.album)}">${kacir(s.sanatci)} · ${kacir(s.album)} ${s.sure ? "· " + sureYaz(s.sure) : ""}</div>
+      </div>
+      ${s.var_mi ? '<button disabled title="Kitaplıkta zaten var">✔</button>'
+                 : `<button data-id="${s.deezer_id}" title="İndir ve Navidrome'a ekle">⬇</button>`}
+    </div>`).join("");
+  sonuclarEl.querySelectorAll("button[data-id]").forEach(b => b.addEventListener("click", () => indir(b)));
+}
+
+async function indir(tus) {
+  tus.disabled = true; tus.textContent = "⏳";
+  try {
+    const r = await fetch("/api/indir", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deezer_id: Number(tus.dataset.id) }) });
+    if (!r.ok) throw 0;
+    const d = await r.json();
+    izle(d.is_id, tus);
+  } catch { tus.textContent = "⚠️"; tus.disabled = false; }
+  kuyrukYenile();
+}
+
+function izle(isId, tus) {
+  const sayac = setInterval(async () => {
+    try {
+      const d = await (await fetch("/api/is/" + isId)).json();
+      if (d.durum === "tamam" || d.durum === "zaten-var") { tus.textContent = "✅"; clearInterval(sayac); kuyrukYenile(); }
+      else if (d.durum === "hata") { tus.textContent = "⚠️"; tus.title = d.hata || "hata"; clearInterval(sayac); kuyrukYenile(); }
+    } catch {}
+  }, 4000);
+  setTimeout(() => clearInterval(sayac), 15 * 60 * 1000);
+}
+
+async function kuyrukYenile() {
+  try {
+    const d = await (await fetch("/api/kuyruk")).json();
+    if (!d.isler.length) { kuyrukEl.innerHTML = '<div class="not">Henüz bir şey indirilmedi.</div>'; return; }
+    kuyrukEl.innerHTML = d.isler.map(i => {
+      const [m, sinif] = DURUM_METIN[i.durum] || [i.durum, ""];
+      return `<div class="satir"><div class="durum ${sinif}">${m}</div>
+        <div class="ne" title="${kacir(i.hata || "")}">${kacir(i.sanatci)} — ${kacir(i.baslik)} <span class="not">(${kacir(i.album)})</span></div>
+        <div class="zaman">${kacir((i.bitti || i.eklendi || "").slice(5, 16))}</div></div>`;
+    }).join("");
+    if (d.bekleyen > 0) setTimeout(kuyrukYenile, 5000);
+  } catch { kuyrukEl.innerHTML = '<div class="not hata">Kuyruk okunamadı.</div>'; }
+}
+
+document.getElementById("aramaForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const q = document.getElementById("aramaKutu").value.trim();
+  if (!q) return;
+  sonuclarEl.innerHTML = '<div class="not">⏳ aranıyor…</div>';
+  try { ciz(await (await fetch("/api/ara?q=" + encodeURIComponent(q))).json()); }
+  catch { sonuclarEl.innerHTML = '<div class="not hata">Arama başarısız — Deezer\'a ulaşılamadı.</div>'; }
+});
+
+(async () => {
+  try { ciz(await (await fetch("/api/populer")).json()); }
+  catch { sonuclarEl.innerHTML = '<div class="not">Popüler liste yüklenemedi — arama yine de çalışır.</div>'; }
+  kuyrukYenile();
+})();
+</script>
+</body>
+</html>
