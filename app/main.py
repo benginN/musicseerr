@@ -266,6 +266,104 @@ def indir_sanatci(istek: SanatciIstek):
     return parcalari_kuyrukla(top, "", "")
 
 
+# ── CSV'den indirme (10 Ağu 2026, kullanıcı isteği) ────────────────────────
+# Beklenen: Exportify (Spotify) / iTunes dışa aktarımı ya da elle yazılmış
+# liste. Başlık satırı varsa sütunlar addan tanınır; yoksa sıra varsayılır:
+# sanatçı, şarkı[, albüm]. Her satır Deezer'da eşleştirilir; İNDİRME BURADA
+# BAŞLAMAZ — önce önizleme, kullanıcı onaylayınca /api/indir-liste kuyruklar.
+CSV_KOLONLAR = {
+    "baslik": ["track name", "track", "title", "song", "şarkı", "sarki",
+               "başlık", "baslik", "parça", "parca", "name"],
+    "sanatci": ["artist name(s)", "artist name", "artists", "artist",
+                "sanatçı", "sanatci", "sanatçılar", "sanatcilar"],
+    "album": ["album name", "album_name", "album", "albüm", "albm"],
+}
+
+
+def csv_kolon_bul(basliklar: list) -> dict:
+    idx = {}
+    for j, h in enumerate(basliklar):
+        h2 = (h or "").strip().lower()
+        for alan, adaylar in CSV_KOLONLAR.items():
+            if alan in idx:
+                continue
+            # "album artist" sütunu ne sanatçıya ne albüme düşmesin
+            if alan == "sanatci" and "album" in h2:
+                continue
+            if alan == "album" and "artist" in h2:
+                continue
+            if any(h2 == a or (a in h2 and len(a) > 4) for a in adaylar):
+                idx[alan] = j
+                break
+    return idx
+
+
+class CsvIstek(BaseModel):
+    csv: str
+
+
+@app.post("/api/csv-coz")
+def csv_coz(istek: CsvIstek):
+    import csv as csvmod
+    import io
+    icerik = istek.csv.lstrip("﻿")
+    try:
+        lehce = csvmod.Sniffer().sniff(icerik[:2000], delimiters=",;\t")
+    except csvmod.Error:
+        lehce = csvmod.excel
+    satirlar = [s for s in csvmod.reader(io.StringIO(icerik), lehce)
+                if any((h or "").strip() for h in s)]
+    if not satirlar:
+        raise HTTPException(400, "CSV boş görünüyor")
+    if len(satirlar) > 401:
+        raise HTTPException(400, "en fazla 400 satır (Deezer arama kotası) — dosyayı böl")
+
+    idx = csv_kolon_bul(satirlar[0])
+    if "baslik" in idx and "sanatci" in idx:
+        veriler = satirlar[1:]
+    else:
+        # başlık satırı yok: sıra varsayımı sanatçı, şarkı[, albüm]
+        idx = {"sanatci": 0, "baslik": 1, "album": 2}
+        veriler = satirlar
+
+    def al(satir, alan):
+        j = idx.get(alan)
+        return satir[j].strip() if j is not None and j < len(satir) else ""
+
+    sonuc, eslesen = [], 0
+    for i, satir in enumerate(veriler):
+        sanatci = al(satir, "sanatci").split(",")[0].strip()
+        baslik = al(satir, "baslik")
+        kayit = {"satir": i + 1, "csv_sanatci": sanatci or al(satir, "sanatci"),
+                 "csv_baslik": baslik, "eslesme": None}
+        if sanatci and baslik:
+            try:
+                d = deezer_al("search", q=f'artist:"{sanatci}" track:"{baslik}"', limit=1)
+                data = d.get("data") or deezer_al(
+                    "search", q=f"{sanatci} {baslik}", limit=1).get("data")
+                if data:
+                    kayit["eslesme"] = parca_ozetle(data[0])
+                    eslesen += 1
+            except Exception:
+                pass  # tek satırın arıza yapması dosyayı düşürmesin
+            time.sleep(0.2)  # Deezer kotası: 50 istek / 5 sn — altında kal
+        sonuc.append(kayit)
+    return {"toplam": len(sonuc), "eslesen": eslesen, "satirlar": sonuc}
+
+
+class ListeIstek(BaseModel):
+    parcalar: list  # [{deezer_id, baslik, sanatci, album}]
+
+
+@app.post("/api/indir-liste")
+def indir_liste(istek: ListeIstek):
+    parcalar = [{"id": p["deezer_id"], "title": p.get("baslik", "?"),
+                 "artist": {"name": p.get("sanatci", "?")},
+                 "album": {"title": p.get("album", "")}}
+                for p in istek.parcalar[:400] if p.get("deezer_id")]
+    return parcalari_kuyrukla(parcalar, "", "")
+
+
 class IndirIstek(BaseModel):
     deezer_id: int
 

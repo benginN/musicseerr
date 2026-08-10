@@ -48,6 +48,7 @@
     <button data-mod="sarki" class="aktif">Şarkı</button>
     <button data-mod="album">Albüm</button>
     <button data-mod="sanatci">Sanatçı</button>
+    <button data-mod="csv">📄 CSV</button>
   </div>
   <form class="arama" id="aramaForm">
     <input id="aramaKutu" type="search" placeholder="Şarkı ya da sanatçı ara… (Deezer)" autofocus>
@@ -185,6 +186,53 @@ async function sanatciAc(id) {
   } catch { sonuclarEl.innerHTML = '<div class="not hata">Sanatçı sayfası yüklenemedi.</div>'; }
 }
 
+// ── CSV modu ──
+function csvArayuz() {
+  sonuclarEl.innerHTML = `
+    <div class="kart" style="display:block;">
+      <div class="ad" style="margin-bottom:0.4rem;">📄 CSV'den toplu indirme</div>
+      <div class="not" style="margin-bottom:0.7rem;">
+        Kabul edilen biçimler: <b>Exportify</b> (Spotify listesi) ve iTunes dışa aktarımı — sütunlar addan tanınır.
+        Başlıksız düz listede sıra: <code>sanatçı, şarkı</code> (albüm sütunu isteğe bağlı). En fazla 400 satır.
+        Önce eşleştirme yapılır, <b>önizlemeyi onaylamadan hiçbir şey indirilmez.</b>
+      </div>
+      <input type="file" id="csvDosya" accept=".csv,text/csv">
+      <div class="not" id="csvDurum" style="margin-top:0.5rem;"></div>
+    </div>
+    <div id="csvSonuc"></div>`;
+  document.getElementById("csvDosya").addEventListener("change", async e => {
+    const dosya = e.target.files[0];
+    if (!dosya) return;
+    const durumEl = document.getElementById("csvDurum");
+    durumEl.textContent = "⏳ eşleştiriliyor — her satır Deezer'da aranıyor, uzun listede birkaç dakika sürebilir…";
+    try {
+      const metin = await dosya.text();
+      const r = await fetch("/api/csv-coz", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ csv: metin }) });
+      if (!r.ok) throw new Error((await r.json()).detail || "çözülemedi");
+      csvOnizleme(await r.json());
+      durumEl.textContent = "";
+    } catch (h) { durumEl.innerHTML = '<span class="hata">⚠️ ' + kacir(h.message || "dosya çözülemedi") + "</span>"; }
+  });
+}
+
+function csvOnizleme(d) {
+  const alan = document.getElementById("csvSonuc");
+  const esler = d.satirlar.filter(s => s.eslesme);
+  const yoklar = d.satirlar.filter(s => !s.eslesme);
+  alan.innerHTML = `
+    <h2>Önizleme — ${d.eslesen}/${d.toplam} satır eşleşti</h2>
+    ${esler.length ? `<button class="tus" id="csvKuyrukla" style="margin-bottom:0.7rem; background:var(--vurgu); color:#16161e; font-weight:600;">⬇ Eşleşen ${esler.length} şarkıyı kuyruğa al</button>` : ""}
+    <div id="csvEsler"></div>
+    ${yoklar.length ? `<h2 class="hata">Eşleşmeyenler (${yoklar.length}) — elle Şarkı sekmesinden ara</h2>` +
+      yoklar.map(s => `<div class="satir kuyruk"><div class="ne hata">satır ${s.satir}: ${kacir(s.csv_sanatci)} — ${kacir(s.csv_baslik)}</div></div>`).join("") : ""}`;
+  sarkilariCiz(document.getElementById("csvEsler"), esler.map(s => s.eslesme));
+  const tus = document.getElementById("csvKuyrukla");
+  if (tus) tus.addEventListener("click", () =>
+    topluIndir(tus, "/api/indir-liste",
+      { parcalar: esler.map(s => ({ deezer_id: s.eslesme.deezer_id, baslik: s.eslesme.baslik, sanatci: s.eslesme.sanatci, album: s.eslesme.album })) },
+      "CSV listesi"));
+}
+
 // ── kuyruk ──
 async function kuyrukYenile() {
   try {
@@ -211,6 +259,8 @@ async function kuyrukYenile() {
 document.getElementById("modlar").querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
   mod = b.dataset.mod;
   document.getElementById("modlar").querySelectorAll("button").forEach(x => x.classList.toggle("aktif", x === b));
+  document.getElementById("aramaForm").style.display = mod === "csv" ? "none" : "flex";
+  if (mod === "csv") { csvArayuz(); return; }
   document.getElementById("aramaKutu").placeholder = YER_TUTUCU[mod];
   const q = document.getElementById("aramaKutu").value.trim();
   if (q) document.getElementById("aramaForm").requestSubmit();
