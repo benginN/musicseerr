@@ -1,0 +1,24 @@
+# musicseerr — example deployment
+# Adjust the two volume paths, then:  docker compose up -d --build
+services:
+  musicseerr:
+    container_name: musicseerr
+    build: .
+    image: musicseerr:local
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    # match the owner of your music folder (uid:gid)
+    user: "1000:100"
+    environment:
+      - TZ=Europe/Berlin
+      # optional overrides (defaults shown):
+      # - AUDIO_FORMAT=mp3
+      # - AUDIO_QUALITY=0            # yt-dlp scale, 0 = best
+      # - COOKIES_FILE=/data/cookies.txt   # only if YouTube bot-checks you
+    volumes:
+      # your music library — the SAME folder Navidrome/Jellyfin reads.
+      # musicseerr writes new files here; point it at the library root.
+      - /path/to/your/music:/music
+      # small state dir: download queue database + temp files
+      - ./data:/data
