@@ -131,17 +131,19 @@ infrastructure they sit on:
 
 | Project | Sources | Requires |
 |---|---|---|
-| [Aurral](https://github.com/lklynet/aurral) | via Lidarr (+ yt-dlp / slskd / Usenet) | a Lidarr / \*arr stack — it's a discovery layer, not a downloader |
-| [SoulSync](https://github.com/Nezreka/SoulSync) | Soulseek first, plus streaming sources | slskd; a large full-featured system (~400k LOC) |
-| [DroppedNeedle](https://github.com/DroppedNeedle/DroppedNeedle) | Soulseek + Usenet | slskd and/or a Usenet subscription |
+| [Aurral](https://github.com/lklynet/aurral) | via Lidarr + download clients (yt-dlp / slskd / Usenet) | a Lidarr install — "built on Lidarr instead of replacing it" |
+| [SoulSync](https://github.com/Nezreka/SoulSync) | 7 sources — Soulseek-first, also Deezer/Tidal/…/YouTube | slskd only for the Soulseek path; a large full-featured system (~400k LOC) |
+| [DroppedNeedle](https://github.com/DroppedNeedle/DroppedNeedle) | Soulseek + Usenet (+ Internet Archive) | slskd and/or a Usenet subscription |
 | **musicseerr** | YouTube (metadata from Deezer) | nothing — one small container |
 
-If you want a full library manager with multi-source downloading, SoulSync or
-DroppedNeedle are genuinely better choices, and Aurral is great on top of an
-existing Lidarr setup. musicseerr deliberately sits in the gap they leave:
-**no P2P, no indexers, no subscriptions** — Soulseek is peer-to-peer (you
-share while you download), which in some jurisdictions is precisely the legal
-exposure you may want to avoid. Here nothing is ever uploaded, and the whole
+They're all good at what they aim for: a full library manager with
+multi-source downloading (SoulSync, DroppedNeedle) or a rich discovery layer
+on top of an existing Lidarr setup (Aurral). musicseerr aims lower on
+purpose: **zero infrastructure and zero P2P by design.** The Soulseek paths
+those tools lean on are peer-to-peer — you share while you download — which
+in some jurisdictions is real legal exposure (SoulSync can be configured
+YouTube-only, but it remains a big system to run). Here nothing is ever
+uploaded, there is nothing to operate besides one container, and the whole
 thing stays "search → click → correctly tagged in your library a minute
 later."
 
