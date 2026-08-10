@@ -172,6 +172,12 @@ Jellyseerr for music?" to this public release, including the end-to-end testing
 against a real Navidrome library. Claude is credited as co-author in the
 commit history.
 
+## Support
+
+If musicseerr saved you an afternoon of tag-fixing, you can
+[buy me a coffee on Ko-fi](https://ko-fi.com/bengin) ☕ — entirely optional,
+the app stays free and MIT either way.
+
 ## License
 
 [MIT](LICENSE)
