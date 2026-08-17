@@ -72,6 +72,7 @@ Everything is optional; defaults work out of the box.
 | `AUDIO_FORMAT` | `mp3` | Output format passed to yt-dlp/ffmpeg |
 | `AUDIO_QUALITY` | `0` | yt-dlp audio quality (0 = best) |
 | `COOKIES_FILE` | *(unset)* | Path to a Netscape-format cookies file, only needed if YouTube bot-checks your server (see below) |
+| `POT_PROVIDER_URL` | *(unset)* | Base URL of a [bgutil-ytdlp-pot-provider](https://github.com/Brainicism/bgutil-ytdlp-pot-provider) server (e.g. `http://bgutil-pot:4416`) — see the bot-check note below |
 | `TZ` | — | Timezone for queue timestamps |
 
 Also set `user:` in `docker-compose.yml` to the uid:gid that owns your music
@@ -110,9 +111,12 @@ The UI is a thin layer over a JSON API — automate away:
 - **A single track fails with `403 Forbidden`** — a transient YouTube hiccup.
   It's retried once automatically; if it still fails, hit 🔁 in the queue.
   Only worry when *every* download 403s (then see the cookies note).
-- **`Sign in to confirm you're not a bot`** — YouTube is bot-checking your IP.
-  Export cookies from a logged-in browser session (any "get cookies.txt"
-  extension) and set `COOKIES_FILE`.
+- **`Sign in to confirm you're not a bot`** — since mid-2026 YouTube demands
+  PO tokens for real formats. Run a
+  [bgutil-ytdlp-pot-provider](https://github.com/Brainicism/bgutil-ytdlp-pot-provider)
+  container next to musicseerr and point `POT_PROVIDER_URL` at it (the image
+  ships the matching yt-dlp plugin and a JS runtime). Cookies
+  (`COOKIES_FILE`) remain a fallback, but tie downloads to your account.
 - **Tracks appear under a wrong artist in Navidrome** — should not happen for
   musicseerr-downloaded files (that's the whole `album_artist` point); for
   files from elsewhere, fix their `album_artist` tag.

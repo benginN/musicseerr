@@ -43,6 +43,10 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 AUDIO_FORMAT = os.environ.get("AUDIO_FORMAT", "mp3")
 AUDIO_QUALITY = os.environ.get("AUDIO_QUALITY", "0")  # yt-dlp scale: 0 = best
 COOKIES_FILE = os.environ.get("COOKIES_FILE", "")  # optional, for bot checks
+# optional: a bgutil-ytdlp-pot-provider instance. As of mid-2026 YouTube
+# demands PO tokens for real formats ("Sign in to confirm you're not a
+# bot") — without a provider most downloads fail.
+POT_PROVIDER_URL = os.environ.get("POT_PROVIDER_URL", "")
 TMP_DIR = DATA_DIR / "tmp"
 DB_PATH = DATA_DIR / "queue.db"
 STATIC = Path(__file__).parent / "static"
@@ -450,6 +454,9 @@ def _ydl_base_opts() -> dict:
     opts = {"quiet": True, "no_warnings": True, "socket_timeout": 30}
     if COOKIES_FILE and Path(COOKIES_FILE).exists():
         opts["cookiefile"] = COOKIES_FILE
+    if POT_PROVIDER_URL:
+        opts["extractor_args"] = {
+            "youtubepot-bgutilhttp": {"base_url": [POT_PROVIDER_URL]}}
     return opts
 
 
